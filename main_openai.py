@@ -2,12 +2,11 @@
 # -*- coding: utf-8 -*-
 import streamlit as st
 import pandas as pd
-import zipfile
 import os
 import tempfile
-from io import StringIO
 import re
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 # Tente este import alternativo:
 try:
@@ -17,7 +16,7 @@ except ImportError:
 
 from langchain_openai import ChatOpenAI
 from langchain.agents.agent_types import AgentType
-from utils_openai import NotaFiscalValidator, extract_zip_file
+from utils_openai import CsvValidator, extract_zip_file
 import warnings
 from dotenv import load_dotenv
 
@@ -159,11 +158,7 @@ class CSVAnalysisAgent:
         context_parts = []
         context_parts.append("Você é um assistente especializado em análise de dados de arquivos csv, sejam notas fiscais ou não.")
         context_parts.append("Responda sempre em português brasileiro.")
-        # context_parts.append("Só responda perguntas relacionadas aos dados em análise.")
-        #         context_parts.append("Sempre que tiver que responder com um gráfico ou se fizer sentido responder com um gráfico, você deve sempre responder um texto explicando o gráfico e o código Python para gerar o gráfico entre §§§ (três sinais § no início e no fim), que use matplotlib e o DataFrame 'df' já carregado para gerar o gráfico. Outros tipos de retorno não são permitidos.")
-        context_parts.append("Sempre que tiver que responder com um gráfico ou se fizer sentido responder com um gráfico, você deve sempre retornar um bloco de código Python entre §§§ (três sinais § no início e no fim), que use matplotlib e o DataFrame 'df' já carregado para gerar o gráfico. Outras formatações de código não são permitidas.")
-        # context_parts.append("Caso seja solicitado que você faça algum tipo de gráfico ou tabela, você deve responder apenas com código python entre §§§ (três sinais § no início do código python e três sinais § no final do código python).")
-        # context_parts.append("Você só pode devolver gráficos e tabelas se eles estiverem em código Python entre §§§ (três sinais § no início e no fim), que use matplotlib e o DataFrame 'df' já carregado para gerar o gráfico ou tabela.")
+        context_parts.append("Sempre que tiver que responder com um gráfico ou se fizer sentido responder com um gráfico, você deve sempre responder o código Python para gerar o gráfico entre ``` (três crases no início e no fim), que use matplotlib e o DataFrame 'df' já carregado para gerar o gráfico. Outras formatações de código não são permitidas. Comentários ao longo do código também não são permitidos.")
         context_parts.append("Quando lhe perguntarem qual sua conclusão sobre a análise de dados, você deve responder.")
         context_parts.append("Seja preciso e forneça exemplos quando possível.")
         context_parts.append("\nDados disponíveis:")
@@ -176,16 +171,15 @@ class CSVAnalysisAgent:
 
 def main():
     # Configuração da página
-    # TODO MUDAR O NOME DO AGENTE
     st.set_page_config(
-        page_title="AgenTech - Análise de Notas Fiscais com GPT",
+        page_title="CSV Agent - Análise de CSVs (Desafio Extra Individual)",
         page_icon="🤖",
         layout="wide",
         initial_sidebar_state="expanded"
     )
     
     # Título principal
-    st.title("🤖 AgenTech - Análise Inteligente de Notas Fiscais")
+    st.title("🤖 CSV Agent - Análise de CSVs (Desafio Extra Individual)")
     st.markdown("### 📊 Powered by OpenAI GPT & LangChain")
     
     # Sidebar para configurações
@@ -210,9 +204,6 @@ def main():
     if 'agent' not in st.session_state:
         st.session_state.agent = CSVAnalysisAgent(openai_api_key)
     
-    # if "openai_client" not in st.session_state:
-    #     st.session_state.openai_client = OpenAI(api_key=openai_api_key)
-
     # Upload de arquivos
     st.sidebar.markdown("---")
     st.sidebar.header("📁 Upload de Arquivos")
@@ -226,7 +217,7 @@ def main():
     
     # Processamento dos arquivos
     if uploaded_files:
-        validator = NotaFiscalValidator()
+        validator = CsvValidator()
         
         with st.spinner("🔄 Processando arquivos..."):
             for uploaded_file in uploaded_files:
@@ -270,12 +261,6 @@ def main():
                 
                 except Exception as e:
                     st.sidebar.error(f"❌ Erro ao processar {uploaded_file.name}: {str(e)}")
-                
-                # finally:
-                #     # Limpa arquivo temporário
-                #     if os.path.exists(tmp_path):
-                #         print("eita")
-                #         os.unlink(tmp_path)
     
     # Exibição dos dados carregados
     if st.session_state.agent.dataframes:
@@ -335,7 +320,7 @@ def main():
                 with st.spinner("🤖 Analisando dados com GPT..."):
                     try:
                         resp = st.session_state.agent.query(user_question)
-                        response = resp.split("§§§")[0]
+                        response = resp.split("```")[0] #fazer um for q vai checar se existem outros blocos de código na lista
                         # Limpa e exibe a resposta
                         if response and str(response).strip():
                             # Remove possíveis prefixos de debug
@@ -353,8 +338,8 @@ def main():
                              # Exibe a resposta final
                             st.markdown(final_response)
 
-                            if "§§§" in resp:
-                                code_blocks = re.findall(r"§§§(?:python)?\s*([\s\S]*?)§§§", resp)
+                            if "```" in resp:
+                                code_blocks = re.findall(r"```(?:python)?\s*([\s\S]*?)```", resp)
                                 if code_blocks:
                                     code = code_blocks[0]
                                     st.markdown("### Gráfico gerado")
@@ -366,16 +351,6 @@ def main():
                                         plt.clf()
                                     except Exception as e:
                                         st.error(f"Erro ao montar gráfico a partir do código informado: {e}")
-                           
-                            # if ("graf" in user_question.lower()) or ("tabela" in user_question.lower()) or ("histograma" in user_question.lower()) or ("grafic" in final_response.lower())  or ("gráfic" in final_response.lower())  or ("visualização" in final_response.lower()) or ("tabela" in final_response.lower()):
-                            #     img_resp = st.session_state.openai_client.images.generate(
-                            #         model="gpt-image-1",
-                            #         prompt=f"Crie um gráfico ou tabela com base no seguinte texto: {final_response}",
-                            #         size="auto"
-                            #     )
-                            #     img_b64 = img_resp.data[0].b64_json
-                            #     img_bytes = base64.b64decode(img_b64)
-                            #     st.image(img_bytes, caption="Gerado pela IA")
                         else:
                             st.error("Não foi possível obter uma resposta válida.")
                     except Exception as e:

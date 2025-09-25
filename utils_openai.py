@@ -5,8 +5,7 @@ import zipfile
 import streamlit as st
 from typing import Union, Optional
 
-# TODO MUDAR O NOME DA CLASSE PRA DX MAIS GENERICO
-class NotaFiscalValidator:
+class CsvValidator:
     """Classe para validar e identificar tipos de arquivos de notas fiscais"""
     
     def __init__(self):
