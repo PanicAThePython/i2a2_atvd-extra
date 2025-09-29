@@ -8,7 +8,6 @@ import re
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Tente este import alternativo:
 try:
     from langchain_experimental.agents import create_csv_agent
 except ImportError:
@@ -264,7 +263,6 @@ def main():
     
     # Exibição dos dados carregados
     if st.session_state.agent.dataframes:
-        print(st.session_state.agent.dataframes)
         st.markdown("---")
         st.header("📊 Dados Carregados")
         
