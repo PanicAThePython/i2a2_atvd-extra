@@ -369,6 +369,7 @@ def main():
     - **LangChain** para criação de agentes inteligentes
     - **Streamlit** para interface web
     - **Pandas** para manipulação de dados
+    - **matplotlib** e **seaborn** para geração de gráficos
     """)
     
     st.sidebar.markdown("### 🔗 Links Úteis")
