@@ -318,7 +318,8 @@ def main():
                 with st.spinner("🤖 Analisando dados com GPT..."):
                     try:
                         resp = st.session_state.agent.query(user_question)
-                        response = resp.split("```")[0] #fazer um for q vai checar se existem outros blocos de código na lista
+                        response = resp.split("```")[0]
+
                         # Limpa e exibe a resposta
                         if response and str(response).strip():
                             # Remove possíveis prefixos de debug
@@ -336,6 +337,7 @@ def main():
                              # Exibe a resposta final
                             st.markdown(final_response)
 
+                        if resp.__len__() > 0:
                             if "```" in resp:
                                 code_blocks = re.findall(r"```(?:python)?\s*([\s\S]*?)```", resp)
                                 if code_blocks:
