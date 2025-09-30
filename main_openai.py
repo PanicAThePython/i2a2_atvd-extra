@@ -51,47 +51,28 @@ class CSVAnalysisAgent:
 
     def load_csv_data(self, file_path, file_type, chunk_size=5000):
         """
-        Carrega CSV em chunks, cria resumo incremental e retorna True/False.
+        Carrega CSV em chunks, concatena todos os chunks no DataFrame completo e retorna True/False.
         """
         try:
             total_rows = 0
-            df_preview = pd.DataFrame()
-            first_chunk = True
-            column_stats = {}  # armazenar estatísticas resumidas por coluna
+            df_full = pd.DataFrame()
 
             # Lê o CSV em chunks
             for chunk in pd.read_csv(file_path, encoding="utf-8", chunksize=chunk_size):
-                rows_in_chunk = len(chunk)
-                total_rows += rows_in_chunk
+                total_rows += len(chunk)
+                # Concatena o chunk completo
+                df_full = pd.concat([df_full, chunk], ignore_index=True)
 
-                # Constrói preview (pega apenas as primeiras linhas de cada chunk)
-                if first_chunk:
-                    df_preview = chunk.copy()
-                    first_chunk = False
-                else:
-                    df_preview = pd.concat([df_preview, chunk.head(10)], ignore_index=True)
-
-                # Estatísticas incrementais simples
-                for col in chunk.select_dtypes(include=['float64', 'int64']).columns:
-                    if col not in column_stats:
-                        column_stats[col] = {'sum': 0, 'count': 0, 'min': float('inf'), 'max': float('-inf')}
-                    column_stats[col]['sum'] += chunk[col].sum()
-                    column_stats[col]['count'] += chunk[col].count()
-                    column_stats[col]['min'] = min(column_stats[col]['min'], chunk[col].min())
-                    column_stats[col]['max'] = max(column_stats[col]['max'], chunk[col].max())
-
-            # Guarda o preview no dataframe
-            self.dataframes[file_type] = df_preview
-            st.session_state.agent.dataframes[file_type] = df_preview
+            # Guarda o DataFrame completo
+            self.dataframes[file_type] = df_full
+            st.session_state.agent.type = file_type
+            st.session_state.agent.dataframes[file_type] = df_full
 
             # Metadados do arquivo
             self.file_info[file_type] = {
                 'path': file_path,
-                'shape': (total_rows, df_preview.shape[1]),
-                'columns': df_preview.columns.tolist(),
-                'partial': True,  # indica que é um resumo
-                'chunk_size': chunk_size,
-                'column_stats': column_stats
+                'shape': (total_rows, df_full.shape[1]),
+                'columns': df_full.columns.tolist()
             }
 
             # Cria LLM
@@ -99,7 +80,7 @@ class CSVAnalysisAgent:
             if llm is None:
                 return False
 
-            # Cria agente específico (o agente ainda pode acessar o arquivo completo se precisar)
+            # Cria agente específico (agente agora terá acesso a todos os dados)
             agent = create_csv_agent(
                 llm,
                 file_path,
@@ -116,11 +97,52 @@ class CSVAnalysisAgent:
             st.error(f"Erro ao carregar arquivo {file_type}: {str(e)}")
             return False
 
+    def create_general_agent(self):
+        """Cria um agente geral que pode acessar todos os dataframes"""
+        try:
+            if not self.dataframes:
+                print("Erro: Nenhum dataframe carregado")
+                return None
+
+            llm = self.create_llm()
+            if llm is None:
+                print("Erro: Não foi possível criar LLM")
+                return None
+
+            # Coleta TODOS os caminhos de arquivos válidos usando file_info
+            file_paths = []
+            for file_type, info in self.file_info.items():
+                if 'path' in info and os.path.exists(info['path']):
+                    file_paths.append(info['path'])
+
+            if not file_paths:
+                print("Erro: Nenhum arquivo válido encontrado")
+                return None
+
+            print(f"Criando agente geral com {len(file_paths)} arquivo(s): {file_paths}")
+
+            # Cria agente geral com todos os arquivos
+            general_agent = create_csv_agent(
+                llm,
+                file_paths,
+                verbose=True,
+                agent_type=AgentType.OPENAI_FUNCTIONS,
+                allow_dangerous_code=True,
+                handle_parsing_errors=True
+            )
+
+            return general_agent
+
+        except Exception as e:
+            print(f"Erro ao criar agente geral: {str(e)}")
+            st.error(f"Erro ao criar agente geral: {str(e)}")
+            return None
+
     def query(self, question, use_general_agent=True):
-        """Executa consulta com base em preview + estatísticas, sem carregar tudo na memória"""
+        """Executa uma consulta usando o agente apropriado"""
         try:
             if use_general_agent:
-                agent = self.agents['csv']
+                agent = self.create_general_agent()
                 if agent is None:
                     return "Erro: Não foi possível criar o agente geral."
             else:
@@ -131,16 +153,7 @@ class CSVAnalysisAgent:
             # Construímos contexto leve
             context = self._build_context()
 
-            # Acrescentamos estatísticas básicas
-            for file_type, info in self.file_info.items():
-                if "column_stats" in info:
-                    stats_summary = []
-                    for col, stats in info["column_stats"].items():
-                        mean = stats["sum"] / stats["count"] if stats["count"] else 0
-                        stats_summary.append(f"{col}: min={stats['min']}, max={stats['max']}, média≈{mean:.2f}")
-                    context += "\n\nResumo estatístico:\n" + "\n".join(stats_summary[:10])  # limita a 10 colunas
-
-            # Pergunta final enviada ao modelo
+            # # Pergunta final enviada ao modelo
             full_question = f"{context}\n\nPergunta: {question}"
 
             # Executa consulta no agente
