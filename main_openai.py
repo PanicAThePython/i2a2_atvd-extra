@@ -260,6 +260,11 @@ def main():
                 
                 except Exception as e:
                     st.sidebar.error(f"❌ Erro ao processar {uploaded_file.name}: {str(e)}")
+
+                finally:
+                    # Limpa arquivo temporário
+                    if os.path.exists(tmp_path):
+                        os.unlink(tmp_path)
     
     # Exibição dos dados carregados
     if st.session_state.agent.dataframes:
