@@ -49,27 +49,46 @@ class CSVAnalysisAgent:
             st.error(f"Erro ao criar modelo GPT: {str(e)}")
             return None
 
-    def load_csv_data(self, file_path, file_type):
-        """Carrega dados CSV e cria agente específico"""
+    def load_csv_data(self, file_path, file_type, chunk_size=5000):
+        """
+        Carrega CSV de forma otimizada em chunks, sem estourar memória.
+        Retorna True se o arquivo foi carregado com sucesso, False caso contrário.
+        """
         try:
-            # Lê o arquivo CSV
-            # df = pd.read_csv(file_path, encoding='utf-8')
-            chunk_iter = pd.read_csv(file_path, encoding="utf-8", chunksize=5000)
-            df = next(chunk_iter)  # pega só o primeiro pedaço
-            
-            # Armazena o dataframe
-            self.dataframes[file_type] = df
+            total_rows = 0
+            df_preview = pd.DataFrame()  # DataFrame resumido para Streamlit e GPT
+            first_chunk = True
+
+            # Lê o CSV em chunks
+            for chunk in pd.read_csv(file_path, encoding="utf-8", chunksize=chunk_size):
+                rows_in_chunk = len(chunk)
+                total_rows += rows_in_chunk
+
+                # Atualiza preview: pega apenas as primeiras linhas de cada chunk
+                if first_chunk:
+                    df_preview = chunk.copy()
+                    first_chunk = False
+                else:
+                    df_preview = pd.concat([df_preview, chunk.head(10)], ignore_index=True)
+
+            # Armazena o DataFrame resumido
+            self.dataframes[file_type] = df_preview
+            st.session_state.agent.dataframes[file_type] = df_preview
+
+            # Guarda metadados
             self.file_info[file_type] = {
                 'path': file_path,
-                'shape': df.shape,
-                'columns': df.columns.tolist()
+                'shape': (total_rows, df_preview.shape[1]),
+                'columns': df_preview.columns.tolist(),
+                'partial': True,          # indica que é um resumo
+                'chunk_size': chunk_size
             }
-            
+
             # Cria o LLM
             llm = self.create_llm()
             if llm is None:
                 return False
-            
+
             # Cria agente específico para este CSV
             agent = create_csv_agent(
                 llm,
@@ -79,14 +98,14 @@ class CSVAnalysisAgent:
                 allow_dangerous_code=True,
                 handle_parsing_errors=True
             )
-            
+
             self.agents[file_type] = agent
             return True
-            
+
         except Exception as e:
             st.error(f"Erro ao carregar arquivo {file_type}: {str(e)}")
             return False
-
+   
     def create_general_agent(self):
         """Cria um agente geral que pode acessar todos os dataframes"""
         try:
