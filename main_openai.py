@@ -117,26 +117,36 @@ class CSVAnalysisAgent:
             return False
 
     def query(self, question, use_general_agent=True):
-        """Executa uma consulta usando o agente apropriado"""
+        """Executa consulta com base em preview + estatísticas, sem carregar tudo na memória"""
         try:
             if use_general_agent:
                 agent = self.agents['csv']
                 if agent is None:
                     return "Erro: Não foi possível criar o agente geral."
             else:
-                # Usa o primeiro agente disponível se não usar o geral
                 if not self.agents:
                     return "Erro: Nenhum agente disponível."
                 agent = list(self.agents.values())[0]
-            
-            # Adiciona contexto sobre os dados
+
+            # Construímos contexto leve
             context = self._build_context()
+
+            # Acrescentamos estatísticas básicas
+            for file_type, info in self.file_info.items():
+                if "column_stats" in info:
+                    stats_summary = []
+                    for col, stats in info["column_stats"].items():
+                        mean = stats["sum"] / stats["count"] if stats["count"] else 0
+                        stats_summary.append(f"{col}: min={stats['min']}, max={stats['max']}, média≈{mean:.2f}")
+                    context += "\n\nResumo estatístico:\n" + "\n".join(stats_summary[:10])  # limita a 10 colunas
+
+            # Pergunta final enviada ao modelo
             full_question = f"{context}\n\nPergunta: {question}"
-            
-            # Executa a consulta
+
+            # Executa consulta no agente
             response = agent.run(full_question)
             return response
-            
+
         except Exception as e:
             error_msg = f"Erro ao processar consulta: {str(e)}"
             print(error_msg)
