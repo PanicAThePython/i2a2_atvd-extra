@@ -211,7 +211,7 @@ def main():
         "Escolha arquivos CSV ou ZIP",
         type=['csv', 'zip'],
         accept_multiple_files=True,
-        help="Faça upload de arquivos CSV de notas fiscais ou arquivos ZIP contendo CSVs"
+        help="Faça upload de arquivos CSV ou arquivos ZIP contendo CSVs"
     )
     
     # Processamento dos arquivos
