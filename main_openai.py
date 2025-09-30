@@ -53,7 +53,9 @@ class CSVAnalysisAgent:
         """Carrega dados CSV e cria agente específico"""
         try:
             # Lê o arquivo CSV
-            df = pd.read_csv(file_path, encoding='utf-8')
+            # df = pd.read_csv(file_path, encoding='utf-8')
+            chunk_iter = pd.read_csv(file_path, encoding="utf-8", chunksize=5000)
+            df = next(chunk_iter)  # pega só o primeiro pedaço
             
             # Armazena o dataframe
             self.dataframes[file_type] = df
