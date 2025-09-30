@@ -13,7 +13,7 @@ Uma aplicação avançada que permite fazer consultas em linguagem natural sobre
 
 - ✅ **Interface Web Intuitiva** com Streamlit
 - ✅ **OpenAI GPT API** para processamento de linguagem natural
-- ✅ **Modelos GPT-3.5 ** disponíveçl
+- ✅ **Modelo GPT-3.5** disponível
 - ✅ **Descompactação automática** de arquivos ZIP
 - ✅ **Identificação automática** de tipos de arquivo (cabeçalho/itens)
 - ✅ **Consultas inteligentes** usando agentes LangChain
@@ -30,6 +30,8 @@ Uma aplicação avançada que permite fazer consultas em linguagem natural sobre
 - Python 3.8 ou superior
 - Conta OpenAI (para API Key)
 - Conexão com internet
+
+### ATENÇÃO! O AGENTE PODE NÃO FUNCIONAR SE NÃO HOUVER ESPAÇO SUFICIENTE EM DISCO (PASTA TEMP). VERIFIQUE SE SUA PASTA TEMP NÃO ESTÁ MUITO CHEIA 
 
 ### Passo 1: Instalação Automática (Recomendado)
 
