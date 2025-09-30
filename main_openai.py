@@ -49,13 +49,11 @@ class CSVAnalysisAgent:
             st.error(f"Erro ao criar modelo GPT: {str(e)}")
             return None
 
-    def load_csv_data(self, file_path, file_type, chunk_size=1000):
+    def load_csv_data(self, file_path, file_type, chunk_size=5000):
         """
         Carrega CSV em chunks, cria resumo incremental e retorna True/False.
-        Lê no máximo 10.000 linhas, mas aceita arquivos menores.
         """
         try:
-            max_rows = 10000
             total_rows = 0
             df_preview = pd.DataFrame()
             first_chunk = True
@@ -64,12 +62,6 @@ class CSVAnalysisAgent:
             # Lê o CSV em chunks
             for chunk in pd.read_csv(file_path, encoding="utf-8", chunksize=chunk_size):
                 rows_in_chunk = len(chunk)
-                
-                # Se ultrapassou o limite de 10.000 linhas, corta o chunk
-                if total_rows + rows_in_chunk > max_rows:
-                    chunk = chunk.iloc[: max_rows - total_rows]
-                    rows_in_chunk = len(chunk)
-
                 total_rows += rows_in_chunk
 
                 # Constrói preview (pega apenas as primeiras linhas de cada chunk)
@@ -87,10 +79,6 @@ class CSVAnalysisAgent:
                     column_stats[col]['count'] += chunk[col].count()
                     column_stats[col]['min'] = min(column_stats[col]['min'], chunk[col].min())
                     column_stats[col]['max'] = max(column_stats[col]['max'], chunk[col].max())
-
-                # Se já atingiu 10.000 linhas, interrompe
-                if total_rows >= max_rows:
-                    break
 
             # Guarda o preview no dataframe
             self.dataframes[file_type] = df_preview
