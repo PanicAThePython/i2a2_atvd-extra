@@ -49,7 +49,7 @@ class CSVAnalysisAgent:
             st.error(f"Erro ao criar modelo GPT: {str(e)}")
             return None
 
-    def load_csv_data(self, file_path, file_type, chunk_size=5000):
+    def load_csv_data(self, file_path, file_type, chunk_size=1000):
         """
         Carrega CSV em chunks, cria resumo incremental e retorna True/False.
         """
